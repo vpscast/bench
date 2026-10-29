@@ -1,0 +1,28 @@
+# On every push and pull request: shellcheck, image build on amd64 and arm64, tool versions check, and a short run
+# that must produce every metric. The numbers from CI are not used.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: shellcheck -x -s bash -e SC1091 run.sh bench.sh lib.sh versions.sh tests/*.sh ci/*.sh
+
+  smoke:
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t vpscast-bench:ci --build-arg GIT_SHA=${{ github.sha }} .
+      - run: ci/check-versions.sh vpscast-bench:ci
+      # No network or latency tests in CI, to avoid load on public endpoints.
+      - run: ./run.sh --image vpscast-bench:ci --quick --only cpu,disk,web,db,build --out out
+      - run: ci/check-result.sh out/result.json

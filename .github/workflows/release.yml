@@ -1,0 +1,81 @@
+# On a vX.Y.Z tag: build the image for amd64 and arm64, push it to ghcr.io/vpscast/bench:X.Y.Z, and create a GitHub
+# release with run.sh and manifest.json pinned to the image digest.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/vpscast/bench
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and check the tools
+        run: |
+          docker buildx build --load -t vpscast-bench:release --build-arg GIT_SHA=${{ github.sha }} .
+          ci/check-versions.sh vpscast-bench:release ${{ github.ref_name }}
+      - name: Push by digest
+        run: |
+          docker buildx build --build-arg GIT_SHA=${{ github.sha }} \
+            --output type=image,name=$IMAGE,push-by-digest=true,name-canonical=true,push=true \
+            --metadata-file meta.json .
+          mkdir -p digests
+          touch "digests/$(jq -r '."containerimage.digest"' meta.json | sed 's/^sha256://')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: digests/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - name: One image for both architectures
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          docker buildx imagetools create -t "$IMAGE:$version" $(ls digests | sed "s|^|$IMAGE@sha256:|")
+          echo "DIGEST=$(docker buildx imagetools inspect "$IMAGE:$version" --format '{{json .Manifest}}' | jq -r .digest)" >>"$GITHUB_ENV"
+      - name: Pin run.sh and manifest.json to the digest
+        run: |
+          mkdir dist
+          sed "s|^IMAGE=ghcr.io/vpscast/bench:\$VERSION$|IMAGE=$IMAGE@$DIGEST|" run.sh >dist/run.sh
+          grep -q "^IMAGE=$IMAGE@$DIGEST$" dist/run.sh
+          jq --arg digest "$DIGEST" --arg sha "$GITHUB_SHA" '. + {digest: $digest, git_sha: $sha}' manifest.json >dist/manifest.json
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" dist/run.sh dist/manifest.json --title "$GITHUB_REF_NAME" --generate-notes

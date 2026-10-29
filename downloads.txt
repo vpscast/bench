@@ -1,0 +1,10 @@
+# Download test files: <slug> <URL> <label>. Public speed test files published by the hosts.
+# One stream, up to 6 s each.
+ovh-rbx            https://proof.ovh.net/files/1Gb.dat                       OVH Roubaix
+hetzner-nbg1       https://nbg1-speed.hetzner.com/1GB.bin                    Hetzner Nuremberg
+hetzner-ash        https://ash-speed.hetzner.com/1GB.bin                     Hetzner Ashburn
+hetzner-hil        https://hil-speed.hetzner.com/1GB.bin                     Hetzner Hillsboro
+hetzner-sin        https://sin-speed.hetzner.com/1GB.bin                     Hetzner Singapore
+vultr-tokyo        https://hnd-jp-ping.vultr.com/vultr.com.1000MB.bin        Vultr Tokyo
+vultr-sydney       https://syd-au-ping.vultr.com/vultr.com.1000MB.bin        Vultr Sydney
+vultr-sao-paulo    https://sao-br-ping.vultr.com/vultr.com.1000MB.bin        Vultr São Paulo

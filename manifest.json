@@ -1,0 +1,68 @@
+{
+  "runner": "1.0.0",
+  "image": "ghcr.io/vpscast/bench",
+  "tests": {
+    "cpu": {
+      "version": "1.0.0",
+      "tools": {"sysbench": "1.0.20", "7zip": "26.00"},
+      "metrics": {
+        "cpu_sysbench_1t": {"tool": "sysbench", "unit": "events/s", "better": "higher"},
+        "cpu_sysbench_mt": {"tool": "sysbench", "unit": "events/s", "better": "higher"},
+        "cpu_7zip_1t": {"tool": "7zip", "unit": "MIPS", "better": "higher"},
+        "cpu_7zip_mt": {"tool": "7zip", "unit": "MIPS", "better": "higher"}
+      }
+    },
+    "disk": {
+      "version": "1.0.0",
+      "tools": {"fio": "3.41"},
+      "metrics": {
+        "disk_rand_read_4k": {"tool": "fio", "unit": "IOPS", "better": "higher"},
+        "disk_rand_write_4k": {"tool": "fio", "unit": "IOPS", "better": "higher"},
+        "disk_sync_write_4k": {"tool": "fio", "unit": "IOPS", "better": "higher"},
+        "disk_sync_write_4k_p99": {"tool": "fio", "unit": "µs", "better": "lower"},
+        "disk_seq_read_1m": {"tool": "fio", "unit": "MB/s", "better": "higher"},
+        "disk_seq_write_1m": {"tool": "fio", "unit": "MB/s", "better": "higher"}
+      }
+    },
+    "web": {
+      "version": "1.0.0",
+      "tools": {"nginx": "1.28.3", "php-fpm": "8.5.4", "wrk": "4.1.0"},
+      "metrics": {
+        "web_static": {"tool": "nginx", "unit": "req/s", "better": "higher"},
+        "web_php": {"tool": "php-fpm", "unit": "req/s", "better": "higher"}
+      }
+    },
+    "db": {
+      "version": "1.0.0",
+      "tools": {"postgresql": "18.6"},
+      "metrics": {
+        "db_pgbench_rw": {"tool": "postgresql", "unit": "TPS", "better": "higher"},
+        "db_pgbench_ro": {"tool": "postgresql", "unit": "TPS", "better": "higher"}
+      }
+    },
+    "build": {
+      "version": "1.0.0",
+      "tools": {},
+      "metrics": {
+        "docker_build_laravel": {"tool": "docker", "unit": "s", "better": "lower"}
+      }
+    },
+    "network": {
+      "version": "1.0.0",
+      "tools": {"curl": "8.18.0"},
+      "metrics": {
+        "net_down": {"tool": "curl", "unit": "Mbit/s", "better": "higher"},
+        "net_up": {"tool": "curl", "unit": "Mbit/s", "better": "higher"},
+        "net_down_point": {"tool": "curl", "unit": "Mbit/s", "better": "higher"}
+      }
+    },
+    "latency": {
+      "version": "1.0.0",
+      "tools": {"bash": "5.3", "curl": "8.18.0", "mtr": "0.95"},
+      "metrics": {
+        "latency_tcp": {"tool": "bash", "unit": "ms", "better": "lower"},
+        "latency_api": {"tool": "curl", "unit": "ms", "better": "lower"}
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# Latency targets: <slug> <kind> <address> <label>
+#   tcp  host:port  TCP connect time. For hosts without a CDN in front: cloud regions, public resolvers.
+#   api  URL        request time on an open keep-alive connection. Exchange APIs are behind a CDN, so a TCP connect
+#                   would only measure the nearest CDN node.
+# Only public ping/time endpoints, 10 requests each.
+
+cloudflare-dns      tcp  1.1.1.1:443                                     Cloudflare 1.1.1.1
+google-dns          tcp  8.8.8.8:443                                     Google 8.8.8.8
+
+aws-us-east-1       tcp  ec2.us-east-1.amazonaws.com:443                 AWS N. Virginia
+aws-us-west-2       tcp  ec2.us-west-2.amazonaws.com:443                 AWS Oregon
+aws-sa-east-1       tcp  ec2.sa-east-1.amazonaws.com:443                 AWS São Paulo
+aws-eu-west-1       tcp  ec2.eu-west-1.amazonaws.com:443                 AWS Ireland
+aws-eu-west-2       tcp  ec2.eu-west-2.amazonaws.com:443                 AWS London
+aws-eu-central-1    tcp  ec2.eu-central-1.amazonaws.com:443              AWS Frankfurt
+aws-ap-south-1      tcp  ec2.ap-south-1.amazonaws.com:443                AWS Mumbai
+aws-ap-southeast-1  tcp  ec2.ap-southeast-1.amazonaws.com:443            AWS Singapore
+aws-ap-northeast-1  tcp  ec2.ap-northeast-1.amazonaws.com:443            AWS Tokyo
+aws-ap-southeast-2  tcp  ec2.ap-southeast-2.amazonaws.com:443            AWS Sydney
+
+binance-spot        api  https://api.binance.com/api/v3/ping             Binance spot API
+binance-futures     api  https://fapi.binance.com/fapi/v1/ping           Binance futures API
+bybit               api  https://api.bybit.com/v5/market/time            Bybit API
+okx                 api  https://www.okx.com/api/v5/public/time          OKX API
+coinbase            api  https://api.exchange.coinbase.com/time          Coinbase Exchange API
+kraken              api  https://api.kraken.com/0/public/Time            Kraken API
+bitget              api  https://api.bitget.com/api/v2/public/time       Bitget API
+kucoin              api  https://api.kucoin.com/api/v1/timestamp         KuCoin API
+gate                api  https://api.gateio.ws/api/v4/spot/time          Gate API
+htx                 api  https://api.huobi.pro/v1/common/timestamp       HTX API
+mexc                api  https://api.mexc.com/api/v3/ping                MEXC API
+deribit             api  https://www.deribit.com/api/v2/public/get_time  Deribit API
+bitfinex            api  https://api-pub.bitfinex.com/v2/platform/status Bitfinex API
