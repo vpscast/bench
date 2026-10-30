@@ -1,8 +1,14 @@
 # Application tests: nginx with a static page and a Laravel page (PHP-FPM, OPcache) under wrk, PostgreSQL with
 # pgbench, and a Docker build of a Laravel app.
 
+# The client grows with the server, or it becomes the limit: a thread per 4 vCPU (2 to 16), and 4 connections per
+# PHP-FPM worker (64 to 512, within the default limit of 1024 open files). Up to 8 vCPU that is 2 threads and 64
+# connections.
+WRK_THREADS=$((NPROC / 4 < 2 ? 2 : NPROC / 4 > 16 ? 16 : NPROC / 4))
+WRK_CONNECTIONS=$((NPROC * 8 < 64 ? 64 : NPROC * 8 > 512 ? 512 : NPROC * 8))
+
 wrk_rps() { # path seconds
-    wrk -t2 -c64 -d"$2"s "http://127.0.0.1:8088$1" | awk '/^Requests\/sec/{printf "%.0f", $2}'
+    wrk -t"$WRK_THREADS" -c"$WRK_CONNECTIONS" -d"$2"s "http://127.0.0.1:8088$1" | awk '/^Requests\/sec/{printf "%.0f", $2}'
 }
 
 test_web() {
@@ -17,9 +23,10 @@ test_web() {
     if [[ $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8088/) != 200 ]]; then
         skipped web "the Laravel page does not answer 200"
     else
-        wrk -t2 -c64 -d2s http://127.0.0.1:8088/ >/dev/null # warms OPcache
-        measure web web_static "{\"client\":\"wrk\",\"threads\":2,\"connections\":64,\"time\":$t}" wrk_rps /static.html "$t"
-        measure web web_php "{\"client\":\"wrk\",\"threads\":2,\"connections\":64,\"time\":$t,\"fpm_children\":$((NPROC * 2)),\"app\":\"laravel welcome\"}" wrk_rps / "$t"
+        wrk -t"$WRK_THREADS" -c"$WRK_CONNECTIONS" -d2s http://127.0.0.1:8088/ >/dev/null # warms OPcache
+        local client="\"client\":\"wrk\",\"threads\":$WRK_THREADS,\"connections\":$WRK_CONNECTIONS"
+        measure web web_static "{$client,\"time\":$t}" wrk_rps /static.html "$t"
+        measure web web_php "{$client,\"time\":$t,\"fpm_children\":$((NPROC * 2)),\"app\":\"laravel welcome\"}" wrk_rps / "$t"
     fi
     nginx -c "$BENCH_DIR/fixtures/web/nginx.conf" -s stop
     kill "$(cat /run/php-bench.pid)"

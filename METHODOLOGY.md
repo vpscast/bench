@@ -35,12 +35,13 @@ files and public `ping`/`time` API endpoints.
 | Disk random write | IOPS | fio | 4K, QD32 |
 | Disk sync write | IOPS, p99 µs | fio | 4K, QD1, `fdatasync` after each write |
 | Disk sequential | MB/s | fio | 1M, QD8, read and write |
-| Web, static | req/s | nginx 1.28, wrk 4.1 | 10 KB page, 2 threads, 64 connections, 10 s |
-| Web, PHP | req/s | PHP-FPM 8.5 with OPcache, wrk | Laravel 13 welcome page, 2 workers per vCPU |
+| Web, static | req/s | nginx 1.28, wrk 4.1 | 10 KB page, a wrk thread per 4 vCPU (2 to 16), 64 to 512 connections, 10 s |
+| Web, PHP | req/s | PHP-FPM 8.5 with OPcache, wrk | Laravel 13 welcome page, 2 workers per vCPU, 4 connections per worker |
 | Database | TPS | PostgreSQL 18, pgbench | scale 50, 2 clients per vCPU, 20 s, read-write and select-only |
 | Docker build | s | Docker with BuildKit | Laravel app image, see below |
 | Download | Mbit/s | curl | Cloudflare speed test, 4 streams, 8 s or 1 GB |
 | Upload | Mbit/s | curl | Cloudflare speed test, 4 streams, 8 s or 1 GB |
+| Download, nearest point | Mbit/s | curl | nearest point of `downloads.txt` outside the server's network, 2 streams, 8 s or 1 GB |
 | Download, route | Mbit/s | curl | one file per continent (`downloads.txt`), 1 stream, 6 s |
 | Latency, regions | ms | TCP connect | cloud regions and public resolvers (`targets.txt`), 10 samples |
 | Latency, exchange APIs | ms | curl | request on an open connection, 10 samples |
@@ -51,6 +52,10 @@ Notes on some of them:
 - 7-Zip picks its dictionary size from the amount of RAM by default. We fix it at 16 MB so every plan runs the
   same test.
 - The sync write test is what a database commit looks like: one 4K write, then a flush.
+- The web client grows with the server: one wrk thread per 4 vCPU and 4 connections per PHP-FPM worker, at least 2
+  threads and 64 connections, at most 16 and 512. With a fixed client a large server would wait for wrk, not for
+  nginx or PHP. Up to 8 vCPU this is the same 2 threads and 64 connections as web 1.x, but the version is 2.0.0
+  because the parameters changed.
 - The web and database tests run the client on the same server. That is the same for every plan, and the numbers are
   meant for comparing plans, not for sizing a production setup.
 - The Docker build compiles a few PHP extensions from source, copies a Laravel app in and builds its caches. It uses
@@ -58,6 +63,11 @@ Notes on some of them:
 - Cloudflare's speed test starts answering 429 after a few GB from one IP, and some datacenter IPs get one on the
   first request. We use it once per run, up to 1 GB. After a 429 we wait as long as Retry-After asks (10 s if it does
   not say, at most 30 s) and try once more. A second refusal is recorded as a missing value, not as zero.
+- The nearest point download is the speed figure that does not depend on Cloudflare. We look up the server's
+  autonomous system (AS) and the AS of every point in `downloads.txt` with RIPEstat, skip points in the server's own
+  AS (that would be the provider's internal network), and take the point with the lowest TCP connect time. The result
+  names the point and its connect time. Two streams, because some points refuse a third connection from one IP. If
+  the lookup fails or no point is left, the value is missing.
 - The route downloads use one stream for 6 s. From far away that mostly shows how fast TCP ramps up over a long
   round trip, not the bandwidth of the server. They compare routes between providers; they are not a speed figure.
   The nearest points may be in the same provider's network and look much faster than the internet in general.

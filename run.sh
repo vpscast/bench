@@ -8,7 +8,7 @@
 # (build the image from this checkout), --keep (keep the work directory). Results go to ./vpscast-bench-<time>/.
 set -euo pipefail
 
-VERSION=1.0.1
+VERSION=1.1.0
 # In the repository this is the tag. The release workflow replaces it with the image digest in the published run.sh.
 IMAGE=ghcr.io/vpscast/bench:$VERSION
 IMAGE=${VPSCAST_BENCH_IMAGE:-$IMAGE}
