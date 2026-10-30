@@ -56,7 +56,22 @@ if ! command -v docker >/dev/null; then
         read -rp "Install Docker with the official script from get.docker.com? [y/N] " answer </dev/tty
         [[ $answer == [yY]* ]] || die "Docker is needed. Install it (https://docs.docker.com/engine/install/) and run again."
     fi
-    curl -fsSL https://get.docker.com | $SUDO sh
+    # A fresh cloud server installs updates at boot, and the install script fails while they hold the package lock.
+    # Wait for cloud-init and for apt or dpkg to finish (10 minutes at most), then try once more if it still fails.
+    if command -v cloud-init >/dev/null; then
+        say "Waiting for cloud-init to finish"
+        timeout 600 $SUDO cloud-init status --wait >/dev/null 2>&1 || true
+    fi
+    for ((i = 0; i < 120; i++)); do
+        pgrep -x 'apt|apt-get|dpkg|unattended-upgr' >/dev/null || break
+        ((i == 0)) && say "Waiting for the system's package updates to finish"
+        sleep 5
+    done
+    curl -fsSL https://get.docker.com | $SUDO sh || {
+        say "The Docker install failed, trying again in 30 s"
+        sleep 30
+        curl -fsSL https://get.docker.com | $SUDO sh
+    }
 fi
 DOCKER="docker"
 docker info >/dev/null 2>&1 || DOCKER="$SUDO docker"

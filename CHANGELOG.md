@@ -19,8 +19,9 @@ cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 
   Africa and the Middle East (Linux mirrors of an exchange point, carriers, datacenters and research networks).
 - web 2.0.1, build 1.0.1: the Laravel app is a fixed skeleton release with locked dependencies (the same as in the
   1.2.0 image), and its Laravel and Composer versions are checked in CI.
-- run.sh asks for 4 GB of free disk instead of 6, checks `--only` before pulling the image, and mounts the Docker
-  socket only when the build test runs.
+- run.sh waits for cloud-init and boot-time package updates before installing Docker, asks for 4 GB of free disk
+  instead of 6, checks `--only` before pulling the image, and mounts the Docker socket only when the build test
+  runs.
 - Steal time leaves out guest time, which is already part of user time. The sync write p99 records the steal time of
   its runs.
 - The release checks the tools of the pushed image itself, not of a second build.
