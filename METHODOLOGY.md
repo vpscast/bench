@@ -41,7 +41,7 @@ files and public `ping`/`time` API endpoints.
 | Docker build | s | Docker with BuildKit | Laravel app image, see below |
 | Download | Mbit/s | curl | Cloudflare speed test, 4 streams, 8 s or 1 GB |
 | Upload | Mbit/s | curl | Cloudflare speed test, 4 streams, 8 s or 1 GB |
-| Download, nearest point | Mbit/s | curl | nearest point of `downloads.txt` outside the server's network, 2 streams, 8 s or 1 GB |
+| Download, nearest point | Mbit/s | curl | nearest neutral point of `near.txt` outside the server's network, 2 streams, 8 s or 1 GB, repeated |
 | Download, route | Mbit/s | curl | one file per continent (`downloads.txt`), 1 stream, 6 s |
 | Latency, regions | ms | TCP connect | cloud regions and public resolvers (`targets.txt`), 10 samples |
 | Latency, exchange APIs | ms | curl | request on an open connection, 10 samples |
@@ -63,11 +63,16 @@ Notes on some of them:
 - Cloudflare's speed test starts answering 429 after a few GB from one IP, and some datacenter IPs get one on the
   first request. We use it once per run, up to 1 GB. After a 429 we wait as long as Retry-After asks (10 s if it does
   not say, at most 30 s) and try once more. A second refusal is recorded as a missing value, not as zero.
-- The nearest point download is the speed figure that does not depend on Cloudflare. We look up the server's
-  autonomous system (AS) and the AS of every point in `downloads.txt` with RIPEstat, skip points in the server's own
-  AS (that would be the provider's internal network), and take the point with the lowest TCP connect time. The result
-  names the point and its connect time. Two streams, because some points refuse a third connection from one IP. If
-  the lookup fails or no point is left, the value is missing.
+- All network and latency tests use IPv4. Left to itself, curl takes IPv6 where the server has it, and plans with and
+  without IPv6 would not be measured the same way.
+- The nearest point download is the speed figure that does not depend on Cloudflare. The points in `near.txt` are
+  speed test files of hosts that are not among the providers we compare (Leaseweb, Clouvider), over plain HTTP so
+  that a small server is not limited by decryption. We look up who holds the server's autonomous system with
+  RIPEstat and skip points of that holder, then take the point with the lowest TCP connect time. The result names
+  the point, its connect time and the server's network. We do not decide here what is near: a reader can leave out
+  results where the point is far (in our pages, over 40 ms). Two streams, because some hosts refuse a third
+  connection from one IP. Unlike Cloudflare's, it is repeated: one 1 GB download lasts under a second on a fast
+  link and varies a lot. If no point answers, the value is missing.
 - The route downloads use one stream for 6 s. From far away that mostly shows how fast TCP ramps up over a long
   round trip, not the bandwidth of the server. They compare routes between providers; they are not a speed figure.
   The nearest points may be in the same provider's network and look much faster than the internet in general.

@@ -1,0 +1,21 @@
+# Points for net_down_near: <slug> <owner> <URL> <label>. Neutral hosts with a 1 GB file over plain HTTP (no TLS,
+# so a small server is not limited by decryption). A point whose owner runs the server's own network is skipped.
+leaseweb-ams     leaseweb   http://speedtest.ams1.nl.leaseweb.net/1000mb.bin    Leaseweb Amsterdam
+leaseweb-fra     leaseweb   http://speedtest.fra1.de.leaseweb.net/1000mb.bin    Leaseweb Frankfurt
+leaseweb-lon     leaseweb   http://speedtest.lon12.uk.leaseweb.net/1000mb.bin   Leaseweb London
+clouvider-lon    clouvider  http://lon.speedtest.clouvider.net/1g.bin           Clouvider London
+leaseweb-nyc     leaseweb   http://speedtest.nyc1.us.leaseweb.net/1000mb.bin    Leaseweb New York
+leaseweb-wdc     leaseweb   http://speedtest.wdc2.us.leaseweb.net/1000mb.bin    Leaseweb Washington
+leaseweb-mia     leaseweb   http://speedtest.mia11.us.leaseweb.net/1000mb.bin   Leaseweb Miami
+leaseweb-chi     leaseweb   http://speedtest.chi11.us.leaseweb.net/1000mb.bin   Leaseweb Chicago
+leaseweb-dal     leaseweb   http://speedtest.dal13.us.leaseweb.net/1000mb.bin   Leaseweb Dallas
+leaseweb-mtl     leaseweb   http://speedtest.mtl2.ca.leaseweb.net/1000mb.bin    Leaseweb Montreal
+leaseweb-phx     leaseweb   http://speedtest.phx1.us.leaseweb.net/1000mb.bin    Leaseweb Phoenix
+leaseweb-lax     leaseweb   http://speedtest.lax12.us.leaseweb.net/1000mb.bin   Leaseweb Los Angeles
+clouvider-la     clouvider  http://la.speedtest.clouvider.net/1g.bin            Clouvider Los Angeles
+leaseweb-sfo     leaseweb   http://speedtest.sfo12.us.leaseweb.net/1000mb.bin   Leaseweb San Francisco
+leaseweb-sea     leaseweb   http://speedtest.sea11.us.leaseweb.net/1000mb.bin   Leaseweb Seattle
+leaseweb-sin     leaseweb   http://speedtest.sin1.sg.leaseweb.net/1000mb.bin    Leaseweb Singapore
+leaseweb-hkg     leaseweb   http://speedtest.hkg12.hk.leaseweb.net/1000mb.bin   Leaseweb Hong Kong
+leaseweb-tyo     leaseweb   http://speedtest.tyo11.jp.leaseweb.net/1000mb.bin   Leaseweb Tokyo
+leaseweb-syd     leaseweb   http://speedtest.syd12.au.leaseweb.net/1000mb.bin   Leaseweb Sydney

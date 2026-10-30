@@ -1,5 +1,6 @@
-# Network tests: download and upload to the nearest Cloudflare node, download from the nearest point in another
-# network, downloads from fixed points on each continent, and latency to the targets in targets.txt.
+# Network tests, over IPv4: download and upload to the nearest Cloudflare node, download from the nearest neutral
+# point outside the server's network (near.txt), downloads from fixed points on each continent (downloads.txt), and
+# latency to the targets in targets.txt.
 
 CF=https://speed.cloudflare.com
 UA="vpscast-bench/$BENCH_VERSION (+https://github.com/vpscast/bench)"
@@ -15,9 +16,9 @@ cf_streams() { # down|up seconds streams
             moved=0
             while ((moved < 250000000)) && left=$(awk -v d="$deadline" -v n="$(now)" 'BEGIN{l = d - n; if (l > 0.2) printf "%.2f", l; else exit 1}'); do
                 if [[ $dir == down ]]; then
-                    read -r code bytes after < <(curl -s -o /dev/null -A "$UA" --max-time "$left" -w '%{http_code} %{size_download} %header{retry-after}\n' "$CF/__down?bytes=25000000")
+                    read -r code bytes after < <(curl -4 -s -o /dev/null -A "$UA" --max-time "$left" -w '%{http_code} %{size_download} %header{retry-after}\n' "$CF/__down?bytes=25000000")
                 else
-                    read -r code bytes after < <(curl -s -o /dev/null -A "$UA" --max-time "$left" -H 'Expect:' -w '%{http_code} %{size_upload} %header{retry-after}\n' --data-binary @"$WORK/up.bin" "$CF/__up")
+                    read -r code bytes after < <(curl -4 -s -o /dev/null -A "$UA" --max-time "$left" -H 'Expect:' -w '%{http_code} %{size_upload} %header{retry-after}\n' --data-binary @"$WORK/up.bin" "$CF/__up")
                 fi
                 # Status 000 means the request was cut at the deadline (100 during an upload). Its bytes still count.
                 [[ $code == 200 || $code == 000 || $code == 100 ]] || { echo "refused $code $after"; break; }
@@ -52,42 +53,60 @@ cf_speed() { # down|up seconds streams
     if [[ $status == refused ]]; then echo "refused $code"; else echo "$out"; fi
 }
 
-# The AS number of an IP, from RIPEstat. Prints nothing if the lookup fails.
-asn() { # ip
-    curl -s -A "$UA" --max-time 10 "https://stat.ripe.net/data/network-info/data.json?resource=$1" | jq -r '.data.asns[0] // empty' 2>/dev/null || true
+# A RIPEstat answer field, asked twice before giving up. Empty if both fail.
+ripestat() { # path jq-filter
+    local out i
+    for i in 1 2; do
+        out=$(curl -4 -s -A "$UA" --max-time 10 "https://stat.ripe.net/data/$1" | jq -r "$2 // empty" 2>/dev/null) || true
+        [[ -n $out ]] && { echo "$out"; return; }
+        sleep 2
+    done
+}
+
+# The network the server is in, as RIPEstat names the holder of its AS ("HETZNER-AS Hetzner Online GmbH"). The public
+# IPv4 address is read from the route when the server has it on an interface, as cloud servers usually do. Empty if
+# the lookup fails.
+own_network() {
+    local ip as
+    ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')
+    if [[ -z $ip || $ip =~ ^(10\.|127\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.) ]]; then
+        ip=$(ripestat whats-my-ip/data.json .data.ip)
+    fi
+    [[ -n $ip ]] || return 0
+    as=$(ripestat "network-info/data.json?resource=$ip" '.data.asns[0]')
+    [[ -n $as ]] || return 0
+    ripestat "as-overview/data.json?resource=AS$as" .data.holder
 }
 
 # Median TCP connect time in ms over 3 samples, or nothing if the host does not answer.
-connect_ms() { # ip
+connect_ms() { # ip port
     local i a b
     for ((i = 0; i < 3; i++)); do
         a=$(now)
-        timeout 3 bash -c "exec 3<>/dev/tcp/$1/443" 2>/dev/null || continue
+        timeout 3 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null || continue
         b=$(now)
         awk -v a="$a" -v b="$b" 'BEGIN{printf "%.2f\n", (b-a)*1000}'
     done | sort -n | awk '{v[NR]=$1} END{if (NR) print v[int((NR+1)/2)]}'
 }
 
-# Picks the point of downloads.txt with the lowest connect time, skipping points in the server's own network (same
-# AS), which would show the provider's internal speed. Prints "<slug> <url> <ms>", or "refused <reason>".
-near_point() {
-    local own slug url host ip as ms best='' best_ms=''
-    own=$(curl -s -A "$UA" --max-time 10 https://stat.ripe.net/data/whats-my-ip/data.json | jq -r '.data.ip // empty' 2>/dev/null) || true
-    [[ -n $own ]] && own=$(asn "$own")
-    [[ -n $own ]] || { echo "refused no-asn"; return; }
-    while read -r slug url _; do
-        host=${url#https://}
+# Picks the point of near.txt with the lowest connect time, skipping points whose owner runs the server's network
+# (that would be the provider's internal speed). Prints "<slug> <url> <ms>", or "refused no-point".
+near_point() { # own network
+    local network=${1,,} slug owner url host port ip ms best='' best_ms=''
+    while read -r slug owner url _; do
+        [[ -n $network && $network == *"$owner"* ]] && continue
+        host=${url#*://}
         host=${host%%/*}
+        port=80
+        [[ $url == https://* ]] && port=443
         ip=$(getent ahostsv4 "$host" | awk 'NR==1{print $1}') || continue
         [[ -n $ip ]] || continue
-        as=$(asn "$ip")
-        [[ -n $as && $as != "$own" ]] || continue
-        ms=$(connect_ms "$ip")
+        ms=$(connect_ms "$ip" "$port")
         [[ -n $ms ]] || continue
         if [[ -z $best_ms ]] || awk -v a="$ms" -v b="$best_ms" 'BEGIN{exit !(a < b)}'; then
             best="$slug $url" best_ms=$ms
         fi
-    done < <(grep -v '^\s*\(#\|$\)' "$BENCH_DIR/downloads.txt")
+    done < <(grep -v '^\s*\(#\|$\)' "$BENCH_DIR/near.txt")
     if [[ -n $best ]]; then echo "$best $best_ms"; else echo "refused no-point"; fi
 }
 
@@ -98,7 +117,7 @@ streams_down() { # url seconds streams
     local url=$1 t=$2 n=$3 start i code
     start=$(now)
     for ((i = 1; i <= n; i++)); do
-        curl -s -o /dev/null -A "$UA" -r 0-499999999 --max-time "$t" -w '%{http_code} %{size_download}\n' "$url" >"$WORK/stream.$i" &
+        curl -4 -s -o /dev/null -A "$UA" -r 0-499999999 --max-time "$t" -w '%{http_code} %{size_download}\n' "$url" >"$WORK/stream.$i" &
     done
     wait
     code=$(awk '$1 != 200 && $1 != 206 && $1 != "000" {print $1; exit}' "$WORK"/stream.*)
@@ -111,7 +130,7 @@ streams_down() { # url seconds streams
 }
 
 download() { # url
-    curl -s -o /dev/null -A "$UA" --max-time 6 -w '%{speed_download}' "$1" | awk '{printf "%.1f", $1*8/1000000}' || true
+    curl -4 -s -o /dev/null -A "$UA" --max-time 6 -w '%{speed_download}' "$1" | awk '{printf "%.1f", $1*8/1000000}' || true
 }
 
 test_network() {
@@ -120,25 +139,30 @@ test_network() {
     head -c 25000000 /dev/urandom >"$WORK/up.bin"
 
     # Run once, to stay within Cloudflare's per-IP limit.
-    TARGET=cloudflare REPEATS=1 measure network net_down "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000}" cf_speed down "$t" 4
-    TARGET=cloudflare REPEATS=1 measure network net_up "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000}" cf_speed up "$t" 4
+    TARGET=cloudflare REPEATS=1 measure network net_down "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000,\"ip\":4}" cf_speed down "$t" 4
+    TARGET=cloudflare REPEATS=1 measure network net_up "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000,\"ip\":4}" cf_speed up "$t" 4
     rm -f "$WORK/up.bin"
 
-    # The same download from the nearest point outside the server's own network: a speed figure that does not depend
-    # on Cloudflare letting the IP in.
-    local near
-    read -r slug url near < <(near_point)
+    # The same download from the nearest neutral point outside the server's network: a speed figure that does not
+    # depend on Cloudflare letting the IP in. How far the point is goes into params; what counts as near is the
+    # reader's call.
+    local network near params
+    network=$(own_network)
+    read -r slug url near < <(near_point "$network")
+    params=$(jq -cn --argjson t "$t" --arg network "$network" '{streams: 2, time: $t, max_bytes: 1000000000, ip: 4, network: ($network | if . == "" then null else . end)}')
     if [[ $slug == refused ]]; then
         log "  No download point for net_down_near: $url"
-        TARGET='' REPEATS=1 measure network net_down_near "{\"streams\":2,\"time\":$t,\"max_bytes\":1000000000}" echo "refused $url"
+        TARGET='' REPEATS=1 measure network net_down_near "$params" echo "refused $url"
     else
-        log "  Nearest download point in another network: $slug, $near ms"
-        TARGET=$slug REPEATS=1 measure network net_down_near "{\"streams\":2,\"time\":$t,\"max_bytes\":1000000000,\"url\":\"$url\",\"connect_ms\":$near}" streams_down "$url" "$t" 2
+        log "  Nearest neutral download point: $slug, $near ms"
+        params=$(jq -c --arg url "$url" --argjson ms "$near" '. + {url: $url, connect_ms: $ms}' <<<"$params")
+        # Repeated like the other tests: one download of 1 GB lasts under a second on a fast link and varies a lot.
+        TARGET=$slug measure network net_down_near "$params" streams_down "$url" "$t" 2
     fi
 
     [[ $QUICK == 1 ]] && return
     while read -r slug url _; do
-        TARGET=$slug REPEATS=1 measure network net_down_point '{"streams":1,"max_time":6}' download "$url"
+        TARGET=$slug REPEATS=1 measure network net_down_point '{"streams":1,"max_time":6,"ip":4}' download "$url"
     done < <(grep -v '^\s*\(#\|$\)' "$BENCH_DIR/downloads.txt")
 }
 
@@ -155,12 +179,12 @@ tcp_rtt() { # host port
     done
 }
 
-# Request time in ms on one keep-alive connection, 10 samples. The first request opens the connection and is
+# Request time in ms on one keep-alive connection over IPv4, 10 samples. The first request opens the connection and is
 # not counted.
 api_rtt() { # url
     local args=() i
     for ((i = 0; i < 11; i++)); do args+=(-o /dev/null "$1"); done
-    curl -s -A "$UA" --max-time 20 -w '%{time_pretransfer} %{time_starttransfer} %{http_code}\n' "${args[@]}" |
+    curl -4 -s -A "$UA" --max-time 20 -w '%{time_pretransfer} %{time_starttransfer} %{http_code}\n' "${args[@]}" |
         awk 'NR>1 && $3>0 && $3<500 {printf "%.2f\n", ($2-$1)*1000}'
 }
 
@@ -181,9 +205,9 @@ test_latency() {
     while read -r slug kind address _; do
         mapfile -t samples <"$WORK/latency/$slug"
         if [[ $kind == tcp ]]; then
-            TARGET=$slug record latency latency_tcp "{\"address\":\"$address\",\"count\":10}" 0 "${samples[@]}"
+            TARGET=$slug record latency latency_tcp "{\"address\":\"$address\",\"count\":10,\"ip\":4}" 0 "${samples[@]}"
         else
-            TARGET=$slug record latency latency_api "{\"url\":\"$address\",\"count\":10}" 0 "${samples[@]}"
+            TARGET=$slug record latency latency_api "{\"url\":\"$address\",\"count\":10,\"ip\":4}" 0 "${samples[@]}"
         fi
     done < <(grep -v '^\s*\(#\|$\)' "$BENCH_DIR/targets.txt")
     rm -rf "$WORK/latency"

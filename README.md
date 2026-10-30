@@ -85,7 +85,7 @@ a zero.
 | `db_pgbench_rw`, `db_pgbench_ro` | TPS | higher | PostgreSQL pgbench, read-write and select-only |
 | `docker_build_laravel` | s | lower | build of a Laravel app image without cache |
 | `net_down`, `net_up` | Mbit/s | higher | Cloudflare speed test, target `cloudflare` |
-| `net_down_near` | Mbit/s | higher | download from the nearest point in another network, the target names it |
+| `net_down_near` | Mbit/s | higher | download from the nearest neutral point outside the server's network (`near.txt`); the target names it, `params` hold its connect time |
 | `net_down_point` | Mbit/s | higher | one stream from a fixed point per continent; compares routes, not a speed figure |
 | `latency_tcp` | ms | lower | TCP connect time to a cloud region or resolver |
 | `latency_api` | ms | lower | request time to an exchange API on an open connection |
@@ -111,6 +111,6 @@ The `run.sh` attached to a release (`releases/download/vX.Y.Z/run.sh`) always ru
 by digest.
 
 [METHODOLOGY.md](METHODOLOGY.md) explains what is measured, how the score is computed and how versions work. Latency
-targets and download files are listed in `targets.txt` and `downloads.txt`. Pull requests are welcome.
+targets and download points are listed in `targets.txt`, `near.txt` and `downloads.txt`. Pull requests are welcome.
 
 Code: MIT. Results published by VPScast: CC BY 4.0.
