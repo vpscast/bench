@@ -15,12 +15,12 @@ cf_streams() { # down|up seconds streams
             moved=0
             while ((moved < 250000000)) && left=$(awk -v d="$deadline" -v n="$(now)" 'BEGIN{l = d - n; if (l > 0.2) printf "%.2f", l; else exit 1}'); do
                 if [[ $dir == down ]]; then
-                    read -r code bytes < <(curl -s -o /dev/null -A "$UA" --max-time "$left" -w '%{http_code} %{size_download}\n' "$CF/__down?bytes=25000000")
+                    read -r code bytes after < <(curl -s -o /dev/null -A "$UA" --max-time "$left" -w '%{http_code} %{size_download} %header{retry-after}\n' "$CF/__down?bytes=25000000")
                 else
-                    read -r code bytes < <(curl -s -o /dev/null -A "$UA" --max-time "$left" -w '%{http_code} %{size_upload}\n' --data-binary @"$WORK/up.bin" "$CF/__up")
+                    read -r code bytes after < <(curl -s -o /dev/null -A "$UA" --max-time "$left" -w '%{http_code} %{size_upload} %header{retry-after}\n' --data-binary @"$WORK/up.bin" "$CF/__up")
                 fi
                 # Status 000 means the request was cut at the deadline. Its bytes still count.
-                [[ $code == 200 || $code == 000 ]] || { echo "refused $code"; break; }
+                [[ $code == 200 || $code == 000 ]] || { echo "refused $code $after"; break; }
                 echo "$bytes"
                 moved=$((moved + bytes))
             done
@@ -35,6 +35,23 @@ cf_streams() { # down|up seconds streams
     rm -f "$WORK"/stream.*
 }
 
+# cf_streams, once more after a 429: some IPs get one on the first request. It waits as long as Retry-After asks,
+# 10 s if it does not say, at most 30 s.
+cf_speed() { # down|up seconds streams
+    local out status code after
+    out=$(cf_streams "$@")
+    read -r status code after <<<"$out"
+    if [[ $status == refused && $code == 429 ]]; then
+        [[ $after =~ ^[0-9]+$ ]] || after=10
+        ((after > 30)) && after=30
+        log "  Cloudflare answered 429, trying again in $after s"
+        sleep "$after"
+        out=$(cf_streams "$@")
+        read -r status code after <<<"$out"
+    fi
+    if [[ $status == refused ]]; then echo "refused $code"; else echo "$out"; fi
+}
+
 download() { # url
     curl -s -o /dev/null -A "$UA" --max-time 6 -w '%{speed_download}' "$1" | awk '{printf "%.1f", $1*8/1000000}' || true
 }
@@ -45,8 +62,8 @@ test_network() {
     head -c 25000000 /dev/urandom >"$WORK/up.bin"
 
     # Run once, to stay within Cloudflare's per-IP limit.
-    TARGET=cloudflare REPEATS=1 measure network net_down "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000}" cf_streams down "$t" 4
-    TARGET=cloudflare REPEATS=1 measure network net_up "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000}" cf_streams up "$t" 4
+    TARGET=cloudflare REPEATS=1 measure network net_down "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000}" cf_speed down "$t" 4
+    TARGET=cloudflare REPEATS=1 measure network net_up "{\"streams\":4,\"time\":$t,\"max_bytes\":1000000000}" cf_speed up "$t" 4
     rm -f "$WORK/up.bin"
 
     [[ $QUICK == 1 ]] && return

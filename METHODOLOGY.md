@@ -55,8 +55,12 @@ Notes on some of them:
   meant for comparing plans, not for sizing a production setup.
 - The Docker build compiles a few PHP extensions from source, copies a Laravel app in and builds its caches. It uses
   no cache, and the base image is pulled before the timer starts, so the network does not count.
-- Cloudflare's speed test starts answering 429 after a few GB from one IP. We use it once per run, up to 1 GB, and
-  record a refusal as a missing value, not as zero.
+- Cloudflare's speed test starts answering 429 after a few GB from one IP, and some datacenter IPs get one on the
+  first request. We use it once per run, up to 1 GB. After a 429 we wait as long as Retry-After asks (10 s if it does
+  not say, at most 30 s) and try once more. A second refusal is recorded as a missing value, not as zero.
+- The route downloads use one stream for 6 s. From far away that mostly shows how fast TCP ramps up over a long
+  round trip, not the bandwidth of the server. They compare routes between providers; they are not a speed figure.
+  The nearest points may be in the same provider's network and look much faster than the internet in general.
 - Most exchanges are behind a CDN. A ping or a TCP connect only reaches the nearest CDN node and looks fast from
   anywhere. The request itself goes on to the exchange, so for exchanges we time the request on an already open
   connection.

@@ -1,5 +1,5 @@
 {
-  "runner": "1.0.0",
+  "runner": "1.0.1",
   "image": "ghcr.io/vpscast/bench",
   "tests": {
     "cpu": {
@@ -25,7 +25,7 @@
       }
     },
     "web": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "tools": {"nginx": "1.28.3", "php-fpm": "8.5.4", "wrk": "4.1.0"},
       "metrics": {
         "web_static": {"tool": "nginx", "unit": "req/s", "better": "higher"},
@@ -48,7 +48,7 @@
       }
     },
     "network": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "tools": {"curl": "8.18.0"},
       "metrics": {
         "net_down": {"tool": "curl", "unit": "Mbit/s", "better": "higher"},
