@@ -29,15 +29,15 @@ files and public `ping`/`time` API endpoints.
 | --- | --- | --- | --- |
 | CPU, one thread | events/s | sysbench 1.0.20 | `cpu --cpu-max-prime=20000`, 10 s |
 | CPU, all vCPUs | events/s | sysbench | same, `--threads=<vCPU>` |
-| Compression, one thread | MIPS | 7-Zip 26.00 | `7z b -mmt1 -md24` |
-| Compression, all vCPUs | MIPS | 7-Zip | `7z b -mmt<vCPU> -md24` |
+| Compression, one thread | MIPS | 7-Zip 26.00 | `7z b -mmt1 -md22` |
+| Compression, all vCPUs | MIPS | 7-Zip | `7z b -mmt<vCPU> -md22` |
 | Disk random read | IOPS | fio 3.41 | 4K, QD32, libaio, direct, 2 GB file, 15 s |
 | Disk random write | IOPS | fio | 4K, QD32 |
 | Disk sync write | IOPS, p99 µs | fio | 4K, QD1, `fdatasync` after each write |
 | Disk sequential | MB/s | fio | 1M, QD8, read and write |
 | Web, static | req/s | nginx 1.28, wrk 4.1 | 10 KB page, a wrk thread per 4 vCPU (2 to 16), 64 to 512 connections, 10 s |
 | Web, PHP | req/s | PHP-FPM 8.5 with OPcache, wrk | Laravel 13 welcome page, 2 workers per vCPU, 4 connections per worker |
-| Database | TPS | PostgreSQL 18, pgbench | scale 50, 2 clients per vCPU, 20 s, read-write and select-only |
+| Database | TPS | PostgreSQL 18, pgbench | scale 50 or the client count if larger, 2 clients per vCPU, 20 s, read-write and select-only |
 | Docker build | s | Docker with BuildKit | Laravel app image, see below |
 | Download | Mbit/s | curl | Cloudflare speed test, 4 streams, 8 s or 1 GB |
 | Upload | Mbit/s | curl | Cloudflare speed test, 4 streams, 8 s or 1 GB |
@@ -49,9 +49,21 @@ files and public `ping`/`time` API endpoints.
 
 Notes on some of them:
 
-- 7-Zip picks its dictionary size from the amount of RAM by default. We fix it at 16 MB so every plan runs the
-  same test.
+- 7-Zip picks its dictionary size from the amount of RAM by default. We fix it at 4 MB so every plan runs the
+  same test. It takes about 28 MB per thread, so the test fits a 512 MB plan; with 16 MB (cpu 1.x) it took 110 MB
+  per thread and was killed there. The rating is within a few percent of the 16 MB one, but the version is 2.0.0.
+- pgbench updates one of `scale` branch rows in each transaction. With more clients than rows they wait on each
+  other's locks, so above 25 vCPU the scale equals the client count. Up to 25 vCPU the parameters are the same as in
+  db 1.x, but the version is 2.0.0, since above 25 vCPU the numbers changed.
+- The read-write database test commits every transaction with a flush, so on small plans its TPS follows the sync
+  write test. That is what a database on that plan does, so we keep it; it means the Applications category also
+  carries some of the disk.
 - The sync write test is what a database commit looks like: one 4K write, then a flush.
+- Direct I/O bypasses the server's page cache, not the host's. The 2 GB test file was just written, and on some
+  providers random reads come from a cache on the host or the storage cluster. Such plans show random read IOPS far
+  above their sync write; compare plans on sync write first.
+- Multi-threaded results grow with the number of vCPUs, so a larger plan scores higher. Compare plans within a vCPU
+  class, or per dollar.
 - The web client grows with the server: one wrk thread per 4 vCPU and 4 connections per PHP-FPM worker, at least 2
   threads and 64 connections, at most 16 and 512. With a fixed client a large server would wait for wrk, not for
   nginx or PHP. Up to 8 vCPU this is the same 2 threads and 64 connections as web 1.x, but the version is 2.0.0
@@ -59,26 +71,41 @@ Notes on some of them:
 - The web and database tests run the client on the same server. That is the same for every plan, and the numbers are
   meant for comparing plans, not for sizing a production setup.
 - The Docker build compiles a few PHP extensions from source, copies a Laravel app in and builds its caches. It uses
-  no cache, and the base image is pulled before the timer starts, so the network does not count.
+  no cache, and the base image is pulled before the timer starts, so the network does not count. It is the only test
+  that uses software of the server rather than of the image: the Docker daemon, BuildKit and the storage driver
+  (overlay2, btrfs, zfs). The result records the Docker version. The time includes sending the build context (the app
+  with its vendor directory, about 100 MB) to the daemon and unpacking the base image's layers on the first step.
+- The Laravel app of the web and build tests is a fixed release of the skeleton with its dependencies locked in
+  `fixtures/app/composer.lock`. Its Laravel and Composer versions are listed with the tools in `manifest.json`, and
+  CI checks them like the other tools.
 - Cloudflare's speed test starts answering 429 after a few GB from one IP, and some datacenter IPs get one on the
   first request. We use it once per run, up to 1 GB. After a 429 we wait as long as Retry-After asks (10 s if it does
   not say, at most 30 s) and try once more. A second refusal is recorded as a missing value, not as zero.
 - All network and latency tests use IPv4. Left to itself, curl takes IPv6 where the server has it, and plans with and
-  without IPv6 would not be measured the same way.
+  without IPv6 would not be measured the same way. On an IPv6-only server the network and latency values are
+  missing.
+- A TCP connect time is read inside the shell that connects, right around the connect. Timed from outside, as in
+  latency 2.x, it also counted starting the processes: 4 to 7 ms on a fast desktop and more on a slow vCPU, so it
+  depended on the plan's CPU.
 - The nearest point download is the speed figure that does not depend on Cloudflare. The points in `near.txt` are
   speed test files of hosts that are not among the providers we compare (Leaseweb, Clouvider), over plain HTTP so
-  that a small server is not limited by decryption. We look up who holds the server's autonomous system with
+  that a small server is not limited by decryption. Where these hosts have no point (South America, India, Africa,
+  the Middle East) we use the Arch Linux ISO on mirrors run by an exchange point, a carrier, a datacenter or a
+  research network. A mirror may have less spare bandwidth than a speed test host; the result names the point. We look up who holds the server's autonomous system with
   RIPEstat and skip points of that holder, then take the point with the lowest TCP connect time. The result names
   the point, its connect time and the server's network. We do not decide here what is near: a reader can leave out
   results where the point is far (in our pages, over 40 ms). Two streams, because some hosts refuse a third
   connection from one IP. Unlike Cloudflare's, it is repeated: one 1 GB download lasts under a second on a fast
-  link and varies a lot. If no point answers, the value is missing.
+  link and varies a lot. If no point answers, the value is missing. If RIPEstat does not answer, the server's
+  network is recorded as null and no point is skipped; such a result may come from the provider's own network, and
+  VPScast marks it so.
 - The route downloads use one stream for 6 s. From far away that mostly shows how fast TCP ramps up over a long
   round trip, not the bandwidth of the server. They compare routes between providers; they are not a speed figure.
   The nearest points may be in the same provider's network and look much faster than the internet in general.
 - Most exchanges are behind a CDN. A ping or a TCP connect only reaches the nearest CDN node and looks fast from
   anywhere. The request itself goes on to the exchange, so for exchanges we time the request on an already open
-  connection.
+  connection. Only answers with status 2xx count: a 403, 429 or 451 comes from the CDN node itself (Binance answers
+  451 to US addresses there), and counting it would show a fast way to an exchange the server cannot reach.
 - Memory bandwidth is not measured. `sysbench memory` reports hundreds of GB/s, which is cache speed, not RAM. Memory
   speed still affects the compression, database and PHP results.
 
@@ -96,7 +123,9 @@ Cloud Mercato reports performance per price as a separate number.
    - CPU: sysbench and 7-Zip, one thread and all vCPUs
    - Disk: random read, random write, sync write, sequential read and write
    - Applications: static web, PHP, both database tests, Docker build
-   - Network: download and upload
+   - Network: download from the nearest point (when its connect time is under 40 ms) and the Cloudflare download
+     and upload. Cloudflare refuses some datacenter IPs; then the category is the nearest point alone, and the run
+     is not partial for it.
 3. The score is the geometric mean of the four category indexes. 100 means equal to the reference.
 4. The reference values are the medians of the first full round of runs in the 2 vCPU class. They are published on
    the methodology page and stay fixed while the test versions stay the same.
@@ -111,9 +140,9 @@ ranked. Latency is not part of the score, since it depends on where you are and 
 `manifest.json` holds all versions and is copied into every `result.json`.
 
 Each test has its own version, for example `disk 1.0.0`. Results are compared only within one major version of a
-test. A patch release does not change the numbers, a minor one adds a metric, and a major one changes the numbers,
-for example a new tool version or different parameters. So a new fio only affects disk results. After a major change
-the old and new versions run side by side on the same plans for a while, and the changelog shows the difference.
+test. A patch release does not change the numbers, a minor one adds a metric, and a major one changes the numbers on
+any plan, for example a new tool version or different parameters, even if only for large plans. So a new fio only
+affects disk results. [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
 
 The runner itself is released with a git tag such as `v1.2.0`. A release is a fixed set of test versions.
 

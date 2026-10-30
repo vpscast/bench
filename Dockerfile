@@ -14,11 +14,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=docker:29.9-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker:29.9-cli /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
-COPY --from=composer:2.10 /usr/bin/composer /usr/local/bin/composer
+COPY --from=composer:2.10.3 /usr/bin/composer /usr/local/bin/composer
 
-# Laravel starter app for the web and build tests. Production settings, no sessions or cache stored between requests.
-RUN composer create-project --no-dev --no-interaction --prefer-dist laravel/laravel:13.* /opt/app \
-    && cd /opt/app \
+# Laravel starter app for the web and build tests: a fixed skeleton release with the dependencies locked in
+# fixtures/app, so a rebuild of the image runs the same app (laravel and composer versions are in manifest.json).
+# Production settings, no sessions or cache stored between requests.
+RUN composer create-project --no-dev --no-interaction --prefer-dist --no-install --no-scripts laravel/laravel:v13.11.0 /opt/app
+COPY fixtures/app/composer.json fixtures/app/composer.lock /opt/app/
+RUN cd /opt/app \
+    && cp .env.example .env \
+    && composer install --no-dev --no-interaction --prefer-dist \
+    && php artisan key:generate \
     && sed -i -e 's/^APP_ENV=.*/APP_ENV=production/' -e 's/^APP_DEBUG=.*/APP_DEBUG=false/' \
         -e 's/^SESSION_DRIVER=.*/SESSION_DRIVER=array/' -e 's/^CACHE_STORE=.*/CACHE_STORE=array/' \
         -e 's/^LOG_CHANNEL=.*/LOG_CHANNEL=null/' .env \

@@ -7,7 +7,7 @@ database, a Docker build, network speed, and latency to cloud regions and crypto
 curl -fsSL https://github.com/vpscast/bench/releases/latest/download/run.sh | bash
 ```
 
-A full run takes 12 to 15 minutes. You need Linux on amd64 or arm64, 6 GB of free disk, Docker, and root or sudo. If
+A full run takes 12 to 15 minutes. You need Linux on amd64 or arm64, 4 GB of free disk, Docker, and root or sudo. If
 Docker is not installed, the script asks before installing it with the official script from get.docker.com. Use
 `--yes` to skip the question.
 
@@ -37,6 +37,7 @@ Results go to `./vpscast-bench-<time>/`:
 | --- | --- |
 | `--quick` | about 4 minutes, one repeat, shorter tests; for a quick check, not comparable with full runs |
 | `--only cpu,disk` | run some tests only: `cpu`, `disk`, `web`, `db`, `build`, `network`, `latency` |
+| `--repeats <n>` | repeat each test n times instead of 3 |
 | `--yes` | install Docker without asking |
 | `--out <dir>` | where to put the results |
 | `--image <ref>` | run another image, for example a test build; the same as `VPSCAST_BENCH_IMAGE=<ref>` |
@@ -48,11 +49,11 @@ Results go to `./vpscast-bench-<time>/`:
 At the end the script prints a summary: each metric with its median, and the tests that were skipped and why.
 
 ```
-cpu_sysbench_1t             1505.0 events/s
-disk_sync_write_4k          4120 IOPS
-net_down cloudflare         2310.4 Mbit/s
-net_down_near hetzner-nbg1  1870.2 Mbit/s
-latency_tcp aws-us-east-1   1.8 ms
+cpu_sysbench_1t               1505.0 events/s
+disk_sync_write_4k            4120 IOPS
+net_down cloudflare           2310.4 Mbit/s
+net_down_near leaseweb-fra    1870.2 Mbit/s
+latency_tcp aws-eu-central-1  1.8 ms
 time, s: cpu 95, disk 160, web 110, db 140, build 210, network 60, latency 45
 ```
 
@@ -69,7 +70,7 @@ time, s: cpu 95, disk 160, web 110, db 140, build 210, network 60, latency 45
 | `durations` | seconds per test |
 
 A missing `median` means every attempt failed, for example a speed test endpoint refused the connection. It is not
-a zero.
+a zero. On an IPv6-only server the network and latency values are missing: the tests use IPv4 only.
 
 ### Metrics
 
@@ -103,7 +104,7 @@ a zero.
 
 - Runs one container from `ghcr.io/vpscast/bench` with host networking and no resource limits.
 - Writes up to about 3 GB of test files to `/var/tmp/vpscast-bench-work` and deletes them at the end.
-- Mounts the Docker socket for the build test. That test builds an image and deletes it, and pulls
+- Mounts the Docker socket for the build test, and only when that test runs. It builds an image and deletes it, and pulls
   `php:8.5-cli-trixie` if it is not there yet. BuildKit keeps its build cache, `docker builder prune` removes it.
 - Downloads and uploads a few GB from public speed test endpoints.
 

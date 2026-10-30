@@ -31,17 +31,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v3
-      - name: Build and check the tools
-        run: |
-          docker buildx build --load -t vpscast-bench:release --build-arg GIT_SHA=${{ github.sha }} .
-          ci/check-versions.sh vpscast-bench:release ${{ github.ref_name }}
       - name: Push by digest
         run: |
           docker buildx build --build-arg GIT_SHA=${{ github.sha }} \
             --output type=image,name=$IMAGE,push-by-digest=true,name-canonical=true,push=true \
             --metadata-file meta.json .
+          echo "BUILT=$(jq -r '."containerimage.digest"' meta.json)" >>"$GITHUB_ENV"
+      # The pushed image itself, by its digest: a second build could differ from it.
+      - name: Check the tools of the pushed image
+        run: |
+          docker pull "$IMAGE@$BUILT"
+          ci/check-versions.sh "$IMAGE@$BUILT" ${{ github.ref_name }}
           mkdir -p digests
-          touch "digests/$(jq -r '."containerimage.digest"' meta.json | sed 's/^sha256://')"
+          touch "digests/${BUILT#sha256:}"
       - uses: actions/upload-artifact@v4
         with:
           name: digest-${{ matrix.arch }}

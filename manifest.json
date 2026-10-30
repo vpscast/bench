@@ -1,9 +1,9 @@
 {
-  "runner": "1.2.0",
+  "runner": "1.3.0",
   "image": "ghcr.io/vpscast/bench",
   "tests": {
     "cpu": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "tools": {"sysbench": "1.0.20", "7zip": "26.00"},
       "metrics": {
         "cpu_sysbench_1t": {"tool": "sysbench", "unit": "events/s", "better": "higher"},
@@ -25,15 +25,15 @@
       }
     },
     "web": {
-      "version": "2.0.0",
-      "tools": {"nginx": "1.28.3", "php-fpm": "8.5.4", "wrk": "4.1.0"},
+      "version": "2.0.1",
+      "tools": {"nginx": "1.28.3", "php-fpm": "8.5.4", "wrk": "4.1.0", "laravel": "13.39.0"},
       "metrics": {
         "web_static": {"tool": "nginx", "unit": "req/s", "better": "higher"},
         "web_php": {"tool": "php-fpm", "unit": "req/s", "better": "higher"}
       }
     },
     "db": {
-      "version": "1.0.0",
+      "version": "2.0.0",
       "tools": {"postgresql": "18.6"},
       "metrics": {
         "db_pgbench_rw": {"tool": "postgresql", "unit": "TPS", "better": "higher"},
@@ -41,14 +41,14 @@
       }
     },
     "build": {
-      "version": "1.0.0",
-      "tools": {},
+      "version": "1.0.1",
+      "tools": {"laravel": "13.39.0", "composer": "2.10.3"},
       "metrics": {
         "docker_build_laravel": {"tool": "docker", "unit": "s", "better": "lower"}
       }
     },
     "network": {
-      "version": "2.0.0",
+      "version": "2.0.1",
       "tools": {"curl": "8.18.0"},
       "metrics": {
         "net_down": {"tool": "curl", "unit": "Mbit/s", "better": "higher"},
@@ -58,7 +58,7 @@
       }
     },
     "latency": {
-      "version": "2.0.0",
+      "version": "3.0.0",
       "tools": {"bash": "5.3", "curl": "8.18.0", "mtr": "0.95"},
       "metrics": {
         "latency_tcp": {"tool": "bash", "unit": "ms", "better": "lower"},

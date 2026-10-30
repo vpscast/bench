@@ -1,4 +1,4 @@
-# Points for net_down_near: <slug> <owner> <URL> <label>. Neutral hosts with a 1 GB file over plain HTTP (no TLS,
+# Points for net_down_near: <slug> <owner> <URL> <label>. Neutral hosts with a file of 1 GB or more over plain HTTP (no TLS,
 # so a small server is not limited by decryption). A point whose owner runs the server's own network is skipped.
 leaseweb-ams     leaseweb   http://speedtest.ams1.nl.leaseweb.net/1000mb.bin    Leaseweb Amsterdam
 leaseweb-fra     leaseweb   http://speedtest.fra1.de.leaseweb.net/1000mb.bin    Leaseweb Frankfurt
@@ -19,3 +19,16 @@ leaseweb-sin     leaseweb   http://speedtest.sin1.sg.leaseweb.net/1000mb.bin    
 leaseweb-hkg     leaseweb   http://speedtest.hkg12.hk.leaseweb.net/1000mb.bin   Leaseweb Hong Kong
 leaseweb-tyo     leaseweb   http://speedtest.tyo11.jp.leaseweb.net/1000mb.bin   Leaseweb Tokyo
 leaseweb-syd     leaseweb   http://speedtest.syd12.au.leaseweb.net/1000mb.bin   Leaseweb Sydney
+# Regions without such a speed test host: the Arch Linux ISO (about 1.6 GB, a stable name) on mirrors run by an
+# exchange point, a carrier, a datacenter or a research network.
+c3sl-cwb         funpar       http://archlinux.c3sl.ufpr.br/iso/latest/archlinux-x86_64.iso               C3SL Curitiba
+unicamp-cps      campinas     http://mirrors.ic.unicamp.br/archlinux/iso/latest/archlinux-x86_64.iso      Unicamp Campinas
+ironservers-scl  ironservers  http://mirror.hnd.cl/archlinux/iso/latest/archlinux-x86_64.iso              Ironservers Santiago
+zgh-scl          zgh          http://elmirror.cl/archlinux/iso/latest/archlinux-x86_64.iso                ZGH Santiago
+extremeix-bom    extreme      http://mirror.bom2.albony.in/archlinux/iso/latest/archlinux-x86_64.iso      Extreme IX Mumbai
+extremeix-del    extreme      http://mirror.del.albony.in/archlinux/iso/latest/archlinux-x86_64.iso       Extreme IX Delhi
+nxtgen-blr       nxtgen       http://mirrors.nxtgen.com/archlinux-mirror/iso/latest/archlinux-x86_64.iso  NxtGen Bangalore
+liquid-nbo       liquid       http://mirror.liquidtelecom.com/archlinux/iso/latest/archlinux-x86_64.iso   Liquid Nairobi
+interhost-tlv    interhost    http://archlinux.interhost.co.il/iso/latest/archlinux-x86_64.iso            Interhost Tel Aviv
+kacst-ruh        aziz         http://mirror.maeen.sa/arch-mirror/iso/latest/archlinux-x86_64.iso          KACST Riyadh
+alastyr-izm      alastyr      http://mirror.alastyr.com/archlinux/iso/latest/archlinux-x86_64.iso         Alastyr Izmir

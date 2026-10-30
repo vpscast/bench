@@ -13,4 +13,6 @@ jq -n \
     --arg curl "$(curl --version | awk 'NR==1{print $2}')" \
     --arg bash "${BASH_VERSINFO[0]}.${BASH_VERSINFO[1]}" \
     --arg mtr "$(mtr --version | awk '{print $2}')" \
+    --arg laravel "$(php /opt/app/artisan --version | awk '{print $3}')" \
+    --arg composer "$(composer --version 2>/dev/null | awk '{print $3}')" \
     '$ARGS.named'

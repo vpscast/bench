@@ -5,7 +5,8 @@
 CF=https://speed.cloudflare.com
 UA="vpscast-bench/$BENCH_VERSION (+https://github.com/vpscast/bench)"
 
-# Runs parallel streams of 25 MB requests for up to $2 seconds, at most 250 MB per stream. Cloudflare limits the
+# Runs parallel streams of 25 MB requests for up to $2 seconds, at most 250 MB per stream. Uploads are read from the
+# file as they go (-T), not loaded into memory, so four streams fit a 512 MB server. Cloudflare limits the
 # traffic per IP, so the total is capped at 1 GB. Prints Mbit/s, or an error if Cloudflare refused a request.
 cf_streams() { # down|up seconds streams
     local dir=$1 t=$2 n=$3 start deadline i
@@ -18,7 +19,7 @@ cf_streams() { # down|up seconds streams
                 if [[ $dir == down ]]; then
                     read -r code bytes after < <(curl -4 -s -o /dev/null -A "$UA" --max-time "$left" -w '%{http_code} %{size_download} %header{retry-after}\n' "$CF/__down?bytes=25000000")
                 else
-                    read -r code bytes after < <(curl -4 -s -o /dev/null -A "$UA" --max-time "$left" -H 'Expect:' -w '%{http_code} %{size_upload} %header{retry-after}\n' --data-binary @"$WORK/up.bin" "$CF/__up")
+                    read -r code bytes after < <(curl -4 -s -o /dev/null -A "$UA" --max-time "$left" -H 'Expect:' -w '%{http_code} %{size_upload} %header{retry-after}\n' -X POST -T "$WORK/up.bin" "$CF/__up")
                 fi
                 # Status 000 means the request was cut at the deadline (100 during an upload). Its bytes still count.
                 [[ $code == 200 || $code == 000 || $code == 100 ]] || { echo "refused $code $after"; break; }
@@ -78,15 +79,19 @@ own_network() {
     ripestat "as-overview/data.json?resource=AS$as" .data.holder
 }
 
+# One TCP connect time in ms, nothing if the host does not answer in 3 s. The clock is read in the child shell right
+# around the connect, so starting the processes is not counted: timed from outside, that added 4 to 7 ms on a fast
+# desktop and more on a slow vCPU (latency 2.x).
+tcp_connect() { # ip port
+    # shellcheck disable=SC2016
+    timeout 3 bash -c 'a=$EPOCHREALTIME; exec 3<>"/dev/tcp/$1/$2" && echo "$a $EPOCHREALTIME"' _ "$1" "$2" 2>/dev/null |
+        awk '{printf "%.2f\n", ($2 - $1) * 1000}'
+}
+
 # Median TCP connect time in ms over 3 samples, or nothing if the host does not answer.
 connect_ms() { # ip port
-    local i a b
-    for ((i = 0; i < 3; i++)); do
-        a=$(now)
-        timeout 3 bash -c "exec 3<>/dev/tcp/$1/$2" 2>/dev/null || continue
-        b=$(now)
-        awk -v a="$a" -v b="$b" 'BEGIN{printf "%.2f\n", (b-a)*1000}'
-    done | sort -n | awk '{v[NR]=$1} END{if (NR) print v[int((NR+1)/2)]}'
+    local i
+    for ((i = 0; i < 3; i++)); do tcp_connect "$1" "$2"; done | sort -n | awk '{v[NR]=$1} END{if (NR) print v[int((NR+1)/2)]}'
 }
 
 # Picks the point of near.txt with the lowest connect time, skipping points whose owner runs the server's network
@@ -168,24 +173,22 @@ test_network() {
 
 # TCP connect time in ms, 10 samples. DNS is resolved first and not timed.
 tcp_rtt() { # host port
-    local ip i a b
+    local ip i
     ip=$(getent ahostsv4 "$1" | awk 'NR==1{print $1}') || return
     for ((i = 0; i < 10; i++)); do
-        a=$(now)
-        timeout 3 bash -c "exec 3<>/dev/tcp/$ip/$2" 2>/dev/null || continue
-        b=$(now)
-        awk -v a="$a" -v b="$b" 'BEGIN{printf "%.2f\n", (b-a)*1000}'
+        tcp_connect "$ip" "$2"
         sleep 0.2
     done
 }
 
 # Request time in ms on one keep-alive connection over IPv4, 10 samples. The first request opens the connection and is
-# not counted.
+# not counted. Only 2xx answers count: a 403, 429 or 451 comes from the CDN in front of the API (Binance answers 451 to
+# US addresses at the edge) and says nothing about the way to the exchange.
 api_rtt() { # url
     local args=() i
     for ((i = 0; i < 11; i++)); do args+=(-o /dev/null "$1"); done
     curl -4 -s -A "$UA" --max-time 20 -w '%{time_pretransfer} %{time_starttransfer} %{http_code}\n' "${args[@]}" |
-        awk 'NR>1 && $3>0 && $3<500 {printf "%.2f\n", ($2-$1)*1000}'
+        awk 'NR>1 && $3>=200 && $3<300 {printf "%.2f\n", ($2-$1)*1000}'
 }
 
 test_latency() {

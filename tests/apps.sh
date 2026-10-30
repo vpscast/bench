@@ -22,6 +22,8 @@ test_web() {
     sleep 1
     if [[ $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8088/) != 200 ]]; then
         skipped web "the Laravel page does not answer 200"
+    elif [[ $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8088/static.html) != 200 ]]; then
+        skipped web "the static page does not answer 200"
     else
         wrk -t"$WRK_THREADS" -c"$WRK_CONNECTIONS" -d2s http://127.0.0.1:8088/ >/dev/null # warms OPcache
         local client="\"client\":\"wrk\",\"threads\":$WRK_THREADS,\"connections\":$WRK_CONNECTIONS"
@@ -35,26 +37,33 @@ test_web() {
 PG=/usr/lib/postgresql/18/bin
 pg() { runuser -u postgres -- "$@"; }
 
-pgbench_tps() { # seconds [-S]
-    pg pgbench -h "$WORK/pgsock" -c "$((NPROC * 2))" -j "$NPROC" -T "$1" "${@:2}" bench | awk '/^tps/{printf "%.0f", $3}'
+pgbench_tps() { # seconds [-S], with $clients from test_db
+    pg pgbench -h "$WORK/pgsock" -c "$clients" -j "$NPROC" -T "$1" "${@:2}" bench | awk '/^tps/{printf "%.0f", $3}'
 }
 
 test_db() {
-    local t scale mem shared
+    local t scale mem shared clients=$((NPROC * 2))
     t=$(secs 20 5)
-    scale=$([[ $QUICK == 1 ]] && echo 10 || echo 50)
+    # pgbench updates one row of pgbench_branches per transaction, and there are $scale of them. With more clients than
+    # rows the clients wait on each other's row locks, so the scale grows with the clients above 25 vCPU.
+    scale=$([[ $QUICK == 1 ]] && echo 10 || echo $((clients > 50 ? clients : 50)))
+    # About 16 MB on disk per scale unit, and 1 GB to spare.
+    if (($(df -BM --output=avail "$WORK" | tail -1 | tr -dc 0-9) < scale * 16 + 1024)); then
+        skipped db "needs $((scale * 16 + 1024)) MB free for pgbench scale $scale"
+        return
+    fi
     mem=$(awk '/MemTotal/{print int($2/1024)}' /proc/meminfo)
     shared=$((mem / 4 > 4096 ? 4096 : mem / 4))
     mkdir -p "$WORK/pg" "$WORK/pgsock" && chown postgres "$WORK/pg" "$WORK/pgsock"
     pg $PG/initdb -D "$WORK/pg" -A trust -U postgres >/dev/null || { skipped db "initdb failed"; return; }
     pg $PG/pg_ctl -D "$WORK/pg" -l "$WORK/pgsock/log" -w start \
-        -o "-k $WORK/pgsock -c listen_addresses='' -c shared_buffers=${shared}MB -c max_connections=200" >/dev/null ||
+        -o "-k $WORK/pgsock -c listen_addresses='' -c shared_buffers=${shared}MB -c max_connections=$((clients + 10))" >/dev/null ||
         { skipped db "postgres did not start"; return; }
     pg createdb -h "$WORK/pgsock" bench
     log "db: pgbench -i -s $scale (shared_buffers ${shared}MB)"
     pg pgbench -h "$WORK/pgsock" -i -q -s "$scale" bench >/dev/null 2>&1
 
-    local params="{\"scale\":$scale,\"clients\":$((NPROC * 2)),\"threads\":$NPROC,\"time\":$t,\"shared_buffers_mb\":$shared}"
+    local params="{\"scale\":$scale,\"clients\":$clients,\"threads\":$NPROC,\"time\":$t,\"shared_buffers_mb\":$shared}"
     measure db db_pgbench_rw "$params" pgbench_tps "$t"
     measure db db_pgbench_ro "$params" pgbench_tps "$t" -S
     pg $PG/pg_ctl -D "$WORK/pg" -m fast stop >/dev/null

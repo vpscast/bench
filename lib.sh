@@ -2,15 +2,17 @@
 
 log() { printf '\033[2m%s\033[0m %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; }
 
-# Total and steal CPU ticks. Steal is time the hypervisor gave to other guests.
-cpu_ticks() { awk '/^cpu /{t=0; for(i=2;i<=NF;i++) t+=$i; print t, $9}' /proc/stat; }
+# Total and steal CPU ticks. Steal is time the hypervisor gave to other guests. Guest time (fields 10 and 11) is
+# already counted in user time, so it is left out.
+cpu_ticks() { awk '/^cpu /{t=0; for(i=2;i<=9;i++) t+=$i; print t, $9}' /proc/stat; }
 
 steal_pct() { # before after
     awk -v a="$1" -v b="$2" 'BEGIN{split(a,x," "); split(b,y," "); d=y[1]-x[1]; printf "%.2f", (d > 0 ? 100 * (y[2] - x[2]) / d : 0)}'
 }
 
 # measure <test> <metric> <params json> <command...>
-# Runs the command $REPEATS times. The command prints one number. Records the samples and the steal time.
+# Runs the command $REPEATS times. The command prints one number. Records the samples and the steal time, and leaves
+# the steal time in $STEAL for metrics recorded from the same runs.
 measure() {
     local test=$1 metric=$2 params=$3
     shift 3
@@ -25,7 +27,8 @@ measure() {
         log "  $metric #$i: $value"
     done
     after=$(cpu_ticks)
-    record "$test" "$metric" "$params" "$(steal_pct "$before" "$after")" "${samples[@]}"
+    STEAL=$(steal_pct "$before" "$after")
+    record "$test" "$metric" "$params" "$STEAL" "${samples[@]}"
 }
 
 # record <test> <metric> <params json> <steal %> <samples...>

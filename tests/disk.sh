@@ -44,7 +44,7 @@ test_disk() {
     : >"$WORK/sync_p99"
     measure disk disk_sync_write_4k "{\"rw\":\"write\",\"bs\":\"4k\",\"iodepth\":1,\"fdatasync\":1,\"time\":$t}" fio_sync "$t"
     # shellcheck disable=SC2046
-    record disk disk_sync_write_4k_p99 "{\"rw\":\"write\",\"bs\":\"4k\",\"iodepth\":1,\"fdatasync\":1,\"time\":$t}" 0 $(cat "$WORK/sync_p99")
+    record disk disk_sync_write_4k_p99 "{\"rw\":\"write\",\"bs\":\"4k\",\"iodepth\":1,\"fdatasync\":1,\"time\":$t}" "$STEAL" $(cat "$WORK/sync_p99")
     measure disk disk_seq_read_1m "{\"rw\":\"read\",\"bs\":\"1m\",\"iodepth\":8,\"size\":\"$FIO_SIZE\",\"time\":$t}" fio_mbs read 1m 8 "$t"
     measure disk disk_seq_write_1m "{\"rw\":\"write\",\"bs\":\"1m\",\"iodepth\":8,\"size\":\"$FIO_SIZE\",\"time\":$t}" fio_mbs write 1m 8 "$t"
     rm -f "$FIO_FILE" "$WORK/sync_p99"
