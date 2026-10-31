@@ -2,6 +2,10 @@
 #   tcp  host:port  TCP connect time. For hosts without a CDN in front: cloud regions, public resolvers.
 #   api  URL        request time on an open keep-alive connection. Exchange APIs are behind a CDN, so a TCP connect
 #                   would only measure the nearest CDN node.
+#   post URL JSON   the same with a POST of that body, for an API whose CDN answers every public GET from its cache
+#                   (the request would never reach the exchange).
+# A target whose request changes gets a new slug, so its old and new values are never compared. manifest.json lists
+# the slugs (CI checks it); changing the list is a minor version of the latency test.
 # Only public ping/time endpoints, 10 requests each.
 
 cloudflare-dns      tcp  1.1.1.1:443                                     Cloudflare 1.1.1.1
@@ -30,4 +34,4 @@ gate                api  https://api.gateio.ws/api/v4/spot/time          Gate AP
 htx                 api  https://api.huobi.pro/v1/common/timestamp       HTX API
 mexc                api  https://api.mexc.com/api/v3/ping                MEXC API
 deribit             api  https://www.deribit.com/api/v2/public/get_time  Deribit API
-bitfinex            api  https://api-pub.bitfinex.com/v2/platform/status Bitfinex API
+bitfinex-fx         post https://api-pub.bitfinex.com/v2/calc/fx {"ccy1":"BTC","ccy2":"USD"} Bitfinex API

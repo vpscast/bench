@@ -3,6 +3,16 @@
 Runner releases and the test versions in each. A major test version changes the numbers, so results are compared
 only within one; see Versions in [METHODOLOGY.md](METHODOLOGY.md).
 
+## 1.4.0
+
+cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.1.0
+
+- latency 3.1.0: the Bitfinex target was answered from Cloudflare's cache in every region (8 to 17 ms from Tokyo,
+  London or New Jersey alike), so it measured the nearest CDN node. It is replaced by `bitfinex-fx`, a POST that the
+  CDN passes to the exchange. The other targets go to the exchange and are unchanged.
+- `manifest.json` lists the latency targets, and CI checks them against `targets.txt`. Changing the set of targets is
+  a minor version of the latency test from now on; a target whose request changes gets a new slug.
+
 ## 1.3.1
 
 cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.0.0

@@ -9,7 +9,7 @@
 # Results go to ./vpscast-bench-<time>/.
 set -euo pipefail
 
-VERSION=1.3.1
+VERSION=1.4.0
 # In the repository this is the tag. The release workflow replaces it with the image digest in the published run.sh.
 IMAGE=ghcr.io/vpscast/bench:$VERSION
 IMAGE=${VPSCAST_BENCH_IMAGE:-$IMAGE}

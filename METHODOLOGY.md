@@ -105,7 +105,9 @@ Notes on some of them:
 - Most exchanges are behind a CDN. A ping or a TCP connect only reaches the nearest CDN node and looks fast from
   anywhere. The request itself goes on to the exchange, so for exchanges we time the request on an already open
   connection. Only answers with status 2xx count: a 403, 429 or 451 comes from the CDN node itself (Binance answers
-  451 to US addresses there), and counting it would show a fast way to an exchange the server cannot reach.
+  451 to US addresses there), and counting it would show a fast way to an exchange the server cannot reach. An
+  endpoint the CDN answers from its cache never reaches the exchange either: Bitfinex's CDN caches every public GET,
+  so for Bitfinex we POST a small calculation instead.
 - Memory bandwidth is not measured. `sysbench memory` reports hundreds of GB/s, which is cache speed, not RAM. Memory
   speed still affects the compression, database and PHP results.
 
@@ -142,7 +144,12 @@ ranked. Latency is not part of the score, since it depends on where you are and 
 Each test has its own version, for example `disk 1.0.0`. Results are compared only within one major version of a
 test. A patch release does not change the numbers, a minor one adds a metric, and a major one changes the numbers on
 any plan, for example a new tool version or different parameters, even if only for large plans. So a new fio only
-affects disk results. [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
+affects disk results.
+
+Latency has a target per exchange or region, and the set changes more often than the method. Adding or removing a
+target is a minor version of the latency test: the other targets keep their numbers. A target whose request changes
+gets a new slug (`bitfinex` became `bitfinex-fx`), so its old and new values are never compared. `manifest.json` lists
+the current targets, and VPScast shows only those. [CHANGELOG.md](CHANGELOG.md) lists what changed in each release.
 
 The runner itself is released with a git tag such as `v1.2.0`. A release is a fixed set of test versions.
 

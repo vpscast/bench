@@ -17,6 +17,12 @@ if [[ -n $diff ]]; then
 fi
 echo "tools match manifest.json"
 
+# The latency targets in manifest.json are the slugs of targets.txt: the site shows only these.
+listed=$(jq -c '.tests.latency.targets' manifest.json)
+actual=$(grep -v '^\s*\(#\|$\)' targets.txt | awk '{print $1}' | jq -R . | jq -sc .)
+[[ $listed == "$actual" ]] || { echo "latency targets in manifest.json differ from targets.txt" >&2; exit 1; }
+echo "latency targets match targets.txt"
+
 if [[ -n ${2:-} ]]; then
     runner=$(jq -r .runner manifest.json)
     script=$(sed -n 's/^VERSION=//p' run.sh)

@@ -183,10 +183,12 @@ tcp_rtt() { # host port
 
 # Request time in ms on one keep-alive connection over IPv4, 10 samples. The first request opens the connection and is
 # not counted. Only 2xx answers count: a 403, 429 or 451 comes from the CDN in front of the API (Binance answers 451 to
-# US addresses at the edge) and says nothing about the way to the exchange.
-api_rtt() { # url
+# US addresses at the edge) and says nothing about the way to the exchange. With a body the requests are POSTs: the CDN
+# in front of some APIs answers a GET from its cache, but never a POST.
+api_rtt() { # url [json body]
     local args=() i
     for ((i = 0; i < 11; i++)); do args+=(-o /dev/null "$1"); done
+    [[ -n ${2:-} ]] && args+=(-X POST -H 'Content-Type: application/json' -d "$2")
     curl -4 -s -A "$UA" --max-time 20 -w '%{time_pretransfer} %{time_starttransfer} %{http_code}\n' "${args[@]}" |
         awk 'NR>1 && $3>=200 && $3<300 {printf "%.2f\n", ($2-$1)*1000}'
 }
@@ -195,10 +197,12 @@ test_latency() {
     local slug kind address samples
     mkdir -p "$WORK/latency"
     # Up to 8 targets in parallel. The connections are small and do not affect each other.
-    while read -r slug kind address _; do
+    while read -r slug kind address body _; do
         while (($(jobs -rp | wc -l) >= 8)); do wait -n; done
         if [[ $kind == tcp ]]; then
             tcp_rtt "${address%:*}" "${address##*:}" >"$WORK/latency/$slug" &
+        elif [[ $kind == post ]]; then
+            api_rtt "$address" "$body" >"$WORK/latency/$slug" &
         else
             api_rtt "$address" >"$WORK/latency/$slug" &
         fi
@@ -210,7 +214,7 @@ test_latency() {
         if [[ $kind == tcp ]]; then
             TARGET=$slug record latency latency_tcp "{\"address\":\"$address\",\"count\":10,\"ip\":4}" 0 "${samples[@]}"
         else
-            TARGET=$slug record latency latency_api "{\"url\":\"$address\",\"count\":10,\"ip\":4}" 0 "${samples[@]}"
+            TARGET=$slug record latency latency_api "$(jq -cn --arg url "$address" --arg method "$([[ $kind == post ]] && echo POST || echo GET)" '{url: $url, method: $method, count: 10, ip: 4}')" 0 "${samples[@]}"
         fi
     done < <(grep -v '^\s*\(#\|$\)' "$BENCH_DIR/targets.txt")
     rm -rf "$WORK/latency"
