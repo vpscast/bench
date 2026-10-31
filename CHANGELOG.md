@@ -3,6 +3,14 @@
 Runner releases and the test versions in each. A major test version changes the numbers, so results are compared
 only within one; see Versions in [METHODOLOGY.md](METHODOLOGY.md).
 
+## 1.3.1
+
+cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.0.0
+
+- run.sh installs Docker right away and waits for the system's package updates only if the install fails on their
+  lock. 1.3.0 always waited for cloud-init and the boot-time updates first, about 10 minutes on a fresh Ubuntu
+  server. The tests are the same as in 1.3.0.
+
 ## 1.3.0
 
 cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.0.0

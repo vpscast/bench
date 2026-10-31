@@ -9,7 +9,7 @@
 # Results go to ./vpscast-bench-<time>/.
 set -euo pipefail
 
-VERSION=1.3.0
+VERSION=1.3.1
 # In the repository this is the tag. The release workflow replaces it with the image digest in the published run.sh.
 IMAGE=ghcr.io/vpscast/bench:$VERSION
 IMAGE=${VPSCAST_BENCH_IMAGE:-$IMAGE}
@@ -56,22 +56,18 @@ if ! command -v docker >/dev/null; then
         read -rp "Install Docker with the official script from get.docker.com? [y/N] " answer </dev/tty
         [[ $answer == [yY]* ]] || die "Docker is needed. Install it (https://docs.docker.com/engine/install/) and run again."
     fi
-    # A fresh cloud server installs updates at boot, and the install script fails while they hold the package lock.
-    # Wait for cloud-init and for apt or dpkg to finish (10 minutes at most), then try once more if it still fails.
-    if command -v cloud-init >/dev/null; then
-        say "Waiting for cloud-init to finish"
-        timeout 600 $SUDO cloud-init status --wait >/dev/null 2>&1 || true
-    fi
-    for ((i = 0; i < 120; i++)); do
-        pgrep -x 'apt|apt-get|dpkg|unattended-upgr' >/dev/null || break
-        ((i == 0)) && say "Waiting for the system's package updates to finish"
+    # A fresh cloud server may be installing updates at boot and hold the package lock; the install script then fails
+    # at once. Only then wait for apt and dpkg to finish (10 minutes at most) and try again, 3 attempts in all.
+    for attempt in 1 2 3; do
+        curl -fsSL https://get.docker.com | $SUDO sh && break
+        ((attempt < 3)) || die "the Docker install failed 3 times"
+        say "The Docker install failed; waiting for the system's package updates to finish"
+        for ((i = 0; i < 120; i++)); do
+            pgrep -x 'apt|apt-get|dpkg|unattended-upgr' >/dev/null || break
+            sleep 5
+        done
         sleep 5
     done
-    curl -fsSL https://get.docker.com | $SUDO sh || {
-        say "The Docker install failed, trying again in 30 s"
-        sleep 30
-        curl -fsSL https://get.docker.com | $SUDO sh
-    }
 fi
 DOCKER="docker"
 docker info >/dev/null 2>&1 || DOCKER="$SUDO docker"
