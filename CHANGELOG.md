@@ -3,6 +3,13 @@
 Runner releases and the test versions in each. A major test version changes the numbers, so results are compared
 only within one; see Versions in [METHODOLOGY.md](METHODOLOGY.md).
 
+## 1.5.0
+
+cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.2.0
+
+- latency 3.2.0: a new target, `hyperliquid`, a POST of `{"type":"exchangeStatus"}` to the Hyperliquid info API.
+  Its CloudFront distribution passes POST requests to the exchange (X-Cache: Miss). The other targets are unchanged.
+
 ## 1.4.0
 
 cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.1.0

@@ -35,3 +35,4 @@ htx                 api  https://api.huobi.pro/v1/common/timestamp       HTX API
 mexc                api  https://api.mexc.com/api/v3/ping                MEXC API
 deribit             api  https://www.deribit.com/api/v2/public/get_time  Deribit API
 bitfinex-fx         post https://api-pub.bitfinex.com/v2/calc/fx {"ccy1":"BTC","ccy2":"USD"} Bitfinex API
+hyperliquid         post https://api.hyperliquid.xyz/info {"type":"exchangeStatus"} Hyperliquid API
