@@ -4,18 +4,20 @@
 #   curl -fsSL https://github.com/vpscast/bench/releases/latest/download/run.sh | bash
 #   curl -fsSL ... | bash -s -- --quick          # about 4 min, for a quick check only
 #   curl -fsSL ... | bash -s -- --share          # compare the server with the plans VPScast measured
+#   curl -fsSL ... | bash -s -- --share --plan hetzner/cx23   # and with VPScast's runs of the plan it is
 #
 # Options: --quick, --only cpu,disk,..., --repeats <n> (3 by default), --share (send result.json to VPScast and print
-# the address of its page), --yes (install Docker without asking), --out <dir>, --image <ref>, --build (build the
-# image from this checkout), --keep (keep the work directory). Results go to ./vpscast-bench-<time>/.
+# the address of its page), --plan <provider/plan> (the plan this server is, as in its VPScast address), --src <name>
+# (which page the command came from), --yes (install Docker without asking), --out <dir>, --image <ref>, --build
+# (build the image from this checkout), --keep (keep the work directory). Results go to ./vpscast-bench-<time>/.
 set -euo pipefail
 
-VERSION=1.6.1
+VERSION=1.7.0
 # In the repository this is the tag. The release workflow replaces it with the image digest in the published run.sh.
 IMAGE=ghcr.io/vpscast/bench:$VERSION
 IMAGE=${VPSCAST_BENCH_IMAGE:-$IMAGE}
 
-YES=0 BUILD=0 KEEP=0 SHARE=0 OUT='' ONLY='' ARGS=()
+YES=0 BUILD=0 KEEP=0 SHARE=0 OUT='' ONLY='' PLAN='' SRC='' ARGS=()
 # Where --share sends the result.
 SHARE_URL=${VPSCAST_SHARE_URL:-https://vpscast.com/benchmarks/shared}
 TESTS=(cpu disk web db build network latency)
@@ -27,10 +29,12 @@ while (($#)); do
         --keep) KEEP=1 ;;
         --share) SHARE=1 ;;
         --out) OUT=$2; shift ;;
+        --plan) PLAN=$2; shift ;;
+        --src) SRC=$2; shift ;;
         --quick) ARGS+=("$1") ;;
         --only) ONLY=$2; ARGS+=("$1" "$2"); shift ;;
         --repeats) ARGS+=("$1" "$2"); shift ;;
-        -h | --help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h | --help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
     shift
@@ -38,6 +42,14 @@ done
 
 say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Both go with --share in the address, as they are.
+[[ -z $PLAN || $PLAN =~ ^[a-z0-9-]+/[a-z0-9.-]+$ ]] || die "--plan takes provider/plan as in the plan's VPScast address, e.g. hetzner/cx23"
+[[ -z $SRC || $SRC =~ ^[a-z0-9-]{1,40}$ ]] || die "--src takes a short name of lowercase letters, digits and dashes"
+QUERY=''
+[[ -n $PLAN ]] && QUERY+="&plan=$PLAN"
+[[ -n $SRC ]] && QUERY+="&src=$SRC"
+[[ -n $QUERY ]] && SHARE_URL+="?${QUERY#&}"
 
 # Checked here as well as in the image, so a typo does not wait for the image to download.
 IFS=, read -ra only <<<"$ONLY"
@@ -113,7 +125,7 @@ say "Done: $OUT/result.json"
 
 # Only result.json leaves the server: the measurements and the hardware, no IP address or host name (the mtr files
 # with the routes stay here).
-SHARE_CMD="curl -fsS --data-binary @$OUT/result.json -H 'Content-Type: application/json' $SHARE_URL"
+SHARE_CMD="curl -fsS --data-binary @$OUT/result.json -H 'Content-Type: application/json' '$SHARE_URL'"
 if [[ $SHARE == 1 ]]; then
     if page=$(curl -sS --max-time 30 --data-binary "@$OUT/result.json" -H 'Content-Type: application/json' -w '\n%{http_code}' "$SHARE_URL"); then
         code=${page##*$'\n'}
@@ -135,5 +147,5 @@ if [[ $SHARE == 1 ]]; then
         echo "Could not reach VPScast. To try again: $SHARE_CMD" >&2
     fi
 else
-    say "To compare this server with the plans VPScast measured: $SHARE_CMD"
+    say "To see how this server compares with the plans VPScast measured, and which score as high for less: $SHARE_CMD"
 fi

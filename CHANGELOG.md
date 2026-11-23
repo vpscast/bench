@@ -3,6 +3,16 @@
 Runner releases and the test versions in each. A major test version changes the numbers, so results are compared
 only within one; see Versions in [METHODOLOGY.md](METHODOLOGY.md).
 
+## 1.7.0
+
+cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.2.0
+
+- run.sh `--plan <provider/plan>` names the plan the server is, as in its VPScast address. With `--share` it goes in
+  the address the result is posted to; the page then names the plan and sets each test against VPScast's own runs of
+  it. `--src <name>` goes the same way and says which page the command was copied from. Neither is in `result.json`.
+- Without `--share`, the closing line says what sharing gives, with the same command as before.
+  The tests are the same as in 1.6.1.
+
 ## 1.6.1
 
 cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.2.0

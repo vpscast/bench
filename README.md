@@ -40,6 +40,8 @@ Results go to `./vpscast-bench-<time>/`:
 | `--only cpu,disk` | run some tests only: `cpu`, `disk`, `web`, `db`, `build`, `network`, `latency` |
 | `--repeats <n>` | repeat each test n times instead of 3 |
 | `--share` | send `result.json` to VPScast and print the address of a page that compares the server with the plans it measured |
+| `--plan <provider/plan>` | with `--share`: the plan this server is, as in its VPScast address (`hetzner/cx23` for `vpscast.com/providers/hetzner/cx23`); the page then also sets the server against VPScast's own runs of that plan |
+| `--src <name>` | with `--share`: which page the command was copied from, so VPScast sees which pages bring runs |
 | `--yes` | install Docker without asking |
 | `--out <dir>` | where to put the results |
 | `--image <ref>` | run another image, for example a test build; the same as `VPSCAST_BENCH_IMAGE=<ref>` |
