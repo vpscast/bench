@@ -10,7 +10,7 @@
 # image from this checkout), --keep (keep the work directory). Results go to ./vpscast-bench-<time>/.
 set -euo pipefail
 
-VERSION=1.6.0
+VERSION=1.6.1
 # In the repository this is the tag. The release workflow replaces it with the image digest in the published run.sh.
 IMAGE=ghcr.io/vpscast/bench:$VERSION
 IMAGE=${VPSCAST_BENCH_IMAGE:-$IMAGE}
@@ -125,6 +125,9 @@ if [[ $SHARE == 1 ]]; then
             if [[ $page == *$'\n'* ]]; then
                 say "Owner link, keep it private (name the provider, delete the result): ${page#*$'\n'}"
             fi
+            # Both links stay next to the result, readable only by whoever ran it.
+            (umask 077 && printf 'Page: %s\nOwner link, keep it private: %s\n' "${page%%$'\n'*}" "${page#*$'\n'}" >"$OUT/share.txt")
+            say "Both links are saved in $OUT/share.txt"
         else
             echo "VPScast did not take the result ($code): $page" >&2
         fi

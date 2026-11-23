@@ -1,5 +1,5 @@
 {
-  "runner": "1.6.0",
+  "runner": "1.6.1",
   "image": "ghcr.io/vpscast/bench",
   "tests": {
     "cpu": {

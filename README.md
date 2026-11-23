@@ -111,8 +111,8 @@ a zero. On an IPv6-only server the network and latency values are missing: the t
 - Downloads and uploads a few GB from public speed test endpoints.
 - Sends nothing to VPScast unless you pass `--share`. Then it posts `result.json` (the measurements and the hardware,
   no IP address or host name) and prints the address of its page and a private owner link, which names the provider
-  or deletes the result. The page is for whoever has the link; VPScast deletes it after a year. To share a result
-  later:
+  or deletes the result; both are also saved in `share.txt` next to `result.json`. The page is for whoever has the
+  link; VPScast deletes it after a year. To share a result later:
   `curl -fsS --data-binary @result.json -H 'Content-Type: application/json' https://vpscast.com/benchmarks/shared`
 
 The `run.sh` attached to a release (`releases/download/vX.Y.Z/run.sh`) always runs the image of that release, pinned

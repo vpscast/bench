@@ -3,6 +3,13 @@
 Runner releases and the test versions in each. A major test version changes the numbers, so results are compared
 only within one; see Versions in [METHODOLOGY.md](METHODOLOGY.md).
 
+## 1.6.1
+
+cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.2.0
+
+- run.sh `--share` also saves the page and the owner link in `share.txt` next to `result.json`, readable only by the
+  user who ran it, so the owner link is not lost with the terminal. The tests are the same as in 1.6.0.
+
 ## 1.6.0
 
 cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.2.0
