@@ -1,5 +1,5 @@
 # On a vX.Y.Z tag: build the image for amd64 and arm64, push it to ghcr.io/vpscast/bench:X.Y.Z, and create a GitHub
-# release with run.sh and manifest.json pinned to the image digest.
+# release with run.sh (and its SHA-256) and manifest.json pinned to the image digest.
 name: release
 
 on:
@@ -77,7 +77,9 @@ jobs:
           sed "s|^IMAGE=ghcr.io/vpscast/bench:\$VERSION$|IMAGE=$IMAGE@$DIGEST|" run.sh >dist/run.sh
           grep -q "^IMAGE=$IMAGE@$DIGEST$" dist/run.sh
           jq --arg digest "$DIGEST" --arg sha "$GITHUB_SHA" '. + {digest: $digest, git_sha: $sha}' manifest.json >dist/manifest.json
+          # A checksum to check run.sh against before running it.
+          (cd dist && sha256sum run.sh >run.sh.sha256)
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" dist/run.sh dist/manifest.json --title "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/run.sh dist/run.sh.sha256 dist/manifest.json --title "$GITHUB_REF_NAME" --generate-notes

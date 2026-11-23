@@ -17,10 +17,11 @@ Options go after `bash -s --`:
 curl -fsSL https://github.com/vpscast/bench/releases/latest/download/run.sh | bash -s -- --quick --only cpu,disk
 ```
 
-To read the script first, download it and run it as a file:
+To read the script first, download it, check it against the release checksum and run it as a file:
 
 ```bash
 curl -fsSLO https://github.com/vpscast/bench/releases/latest/download/run.sh
+curl -fsSL https://github.com/vpscast/bench/releases/latest/download/run.sh.sha256 | sha256sum -c -
 less run.sh
 bash run.sh --yes
 ```
@@ -38,6 +39,7 @@ Results go to `./vpscast-bench-<time>/`:
 | `--quick` | about 4 minutes, one repeat, shorter tests; for a quick check, not comparable with full runs |
 | `--only cpu,disk` | run some tests only: `cpu`, `disk`, `web`, `db`, `build`, `network`, `latency` |
 | `--repeats <n>` | repeat each test n times instead of 3 |
+| `--share` | send `result.json` to VPScast and print the address of a page that compares the server with the plans it measured |
 | `--yes` | install Docker without asking |
 | `--out <dir>` | where to put the results |
 | `--image <ref>` | run another image, for example a test build; the same as `VPSCAST_BENCH_IMAGE=<ref>` |
@@ -107,6 +109,11 @@ a zero. On an IPv6-only server the network and latency values are missing: the t
 - Mounts the Docker socket for the build test, and only when that test runs. It builds an image and deletes it, and pulls
   `php:8.5-cli-trixie` if it is not there yet. BuildKit keeps its build cache, `docker builder prune` removes it.
 - Downloads and uploads a few GB from public speed test endpoints.
+- Sends nothing to VPScast unless you pass `--share`. Then it posts `result.json` (the measurements and the hardware,
+  no IP address or host name) and prints the address of its page and a private owner link, which names the provider
+  or deletes the result. The page is for whoever has the link; VPScast deletes it after a year. To share a result
+  later:
+  `curl -fsS --data-binary @result.json -H 'Content-Type: application/json' https://vpscast.com/benchmarks/shared`
 
 The `run.sh` attached to a release (`releases/download/vX.Y.Z/run.sh`) always runs the image of that release, pinned
 by digest.

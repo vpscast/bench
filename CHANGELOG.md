@@ -3,6 +3,16 @@
 Runner releases and the test versions in each. A major test version changes the numbers, so results are compared
 only within one; see Versions in [METHODOLOGY.md](METHODOLOGY.md).
 
+## 1.6.0
+
+cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.2.0
+
+- run.sh `--share` sends `result.json` to VPScast and prints the address of a page that compares the server with the
+  plans VPScast measured. Without it, run.sh prints the curl command that does the same. Only `result.json` is sent;
+  the mtr files with the routes stay on the server. It also prints a private owner link, which names the provider or
+  deletes the result. The tests are the same as in 1.5.0.
+- Each release carries `run.sh.sha256`, to check `run.sh` before running it.
+
 ## 1.5.0
 
 cpu 2.0.0, disk 1.0.0, web 2.0.1, db 2.0.0, build 1.0.1, network 2.0.1, latency 3.2.0
